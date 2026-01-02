@@ -1,10 +1,13 @@
-﻿// 📦 PAQUETES QUE NECESITAMOS
 const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// 📦 PAQUETES QUE NECESITAMOS
 const { MessagingResponse } = require('twilio').twiml;
 
 // 🏗️ CONSTRUIR EL SERVIDOR
-const app = express();
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json());  // ← AÑADÍ ESTA LÍNEA
 
 // 📒 CUADERNO PARA RECORDAR
 const cuaderno = {};
@@ -56,19 +59,12 @@ Escribe el número de lo que quieres:
 // ✅ RUTA DE PRUEBA EN LA RAÍZ
 app.get('/', (req, res) => {
   console.log("✅ GET a la raíz recibido");
-  res.send('✅ Bot Victorias Hairsalon funcionando. Webhook: POST /whatsapp-webhook');
-});
-
-// ✅ RUTA DE PRUEBA POST EN RAÍZ (por si Twilio envía aquí)
-app.post('/', (req, res) => {
-  console.log("✅ POST a la raíz recibido, redirigiendo a /whatsapp-webhook");
-  // Redirigir al webhook correcto
-  res.redirect(307, '/whatsapp-webhook');
+  res.send('✅ Bot Victorias Hairsalon funcionando. Webhook: POST /whatsapp');
 });
 
 // 📞 CUANDO ALGUIEN ESCRIBE POR WHATSAPP
-app.post('/whatsapp-webhook', (req, res) => {
-  console.log("📱 Webhook /whatsapp-webhook llamado!");
+app.post('/whatsapp', (req, res) => {
+  console.log("📱 Webhook /whatsapp llamado!");
   
   // SI NO HAY DATOS DE TWILIO, RESPONDER CON ÉXITO
   if (!req.body || !req.body.From) {
@@ -85,7 +81,7 @@ app.post('/whatsapp-webhook', (req, res) => {
   const respuesta = new MessagingResponse();
   const mensaje = respuesta.message();
   
-  // Datos del mensaje (AHORA SEGURO QUE EXISTEN)
+  // Datos del mensaje
   const telefono = req.body.From;
   const texto = (req.body.Body || '').trim().toLowerCase();
   
@@ -230,13 +226,11 @@ app.post('/whatsapp-webhook', (req, res) => {
 });
 
 // 🚀 ENCENDER EL BOT
-const puerto = 3000;
-app.listen(puerto, () => {
+app.listen(PORT, () => {
   console.log("=".repeat(60));
   console.log("✨✨ VICTORIAS HAIRSALON BOT ACTIVO ✨✨");
-  console.log(`📍 Dirección local: http://localhost:${puerto}`);
-  console.log(`📍 Prueba GET: http://localhost:${puerto}/`);
-  console.log(`🔗 Webhook: http://localhost:${puerto}/whatsapp-webhook`);
+  console.log(`📍 Servidor en puerto: ${PORT}`);
+  console.log(`📍 URL local: http://localhost:${PORT}`);
+  console.log(`🔗 Webhook: http://localhost:${PORT}/whatsapp`);
   console.log("=".repeat(60));
-  console.log("\n✅ Bot MEJORADO con rutas adicionales");
 });
