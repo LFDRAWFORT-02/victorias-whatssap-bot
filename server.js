@@ -9,6 +9,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configurar variables de entorno PARA POSTGRES
+// Servir archivos estáticos CORRECTAMENTE
+app.use(express.static(__dirname));
 process.env.DATABASE_URL = 'postgresql://victorias_admin:7TB4EZxUJz4uBM8y9cVfuIor6WjHo8ZD@dpg-d5c3u3f5r7bs73aouo60-a/victorias_db';
 
 // Middleware
@@ -332,3 +334,4 @@ app.listen(PORT, () => {
   console.log('   ✅ Sistema listo para producción');
   console.log('🚀 ==========================================');
 });
+
