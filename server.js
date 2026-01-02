@@ -9,14 +9,12 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configurar variables de entorno PARA POSTGRES
-// Servir archivos estáticos CORRECTAMENTE
-app.use(express.static(__dirname));
 process.env.DATABASE_URL = 'postgresql://victorias_admin:7TB4EZxUJz4uBM8y9cVfuIor6WjHo8ZD@dpg-d5c3u3f5r7bs73aouo60-a/victorias_db';
 
 // Middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-app.use(express.static('public'));
+app.use(express.static(__dirname)); // Servir archivos estáticos desde la raíz
 
 // Configuración de sesión para el panel admin
 app.use(session({
@@ -40,7 +38,7 @@ const requireAuth = (req, res, next) => {
 
 // ========== RUTAS DEL PANEL ADMIN ==========
 app.get('/admin', requireAuth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'admin.html'));
+  res.sendFile(__dirname + '/admin.html');
 });
 
 app.get('/admin/login', (req, res) => {
@@ -296,22 +294,136 @@ app.get('/', (req, res) => {
     <head>
       <title>Victoria's Bot</title>
       <style>
-        body { font-family: Arial; text-align: center; padding: 50px; }
-        h1 { color: #667eea; }
-        .status { background: #e6fff2; padding: 20px; border-radius: 10px; display: inline-block; margin: 20px; }
+        body { 
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+          text-align: center; 
+          padding: 50px;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          min-height: 100vh;
+          color: white;
+        }
+        .container {
+          max-width: 800px;
+          margin: 0 auto;
+          background: rgba(255, 255, 255, 0.95);
+          padding: 40px;
+          border-radius: 20px;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+          color: #333;
+        }
+        h1 { 
+          color: #667eea; 
+          font-size: 42px;
+          margin-bottom: 30px;
+        }
+        .status { 
+          background: #e6fff2; 
+          padding: 30px; 
+          border-radius: 15px; 
+          display: inline-block; 
+          margin: 20px;
+          text-align: left;
+          width: 100%;
+        }
+        .status-item {
+          margin: 15px 0;
+          padding: 15px;
+          background: white;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        .status-icon {
+          font-size: 24px;
+          margin-right: 15px;
+          width: 50px;
+          text-align: center;
+        }
+        .success { color: #27ae60; }
+        .info { color: #3498db; }
+        .warning { color: #f39c12; }
+        .btn {
+          display: inline-block;
+          background: #667eea;
+          color: white;
+          padding: 15px 30px;
+          text-decoration: none;
+          border-radius: 10px;
+          font-weight: bold;
+          margin-top: 20px;
+          transition: all 0.3s;
+        }
+        .btn:hover {
+          background: #5a6fd8;
+          transform: translateY(-3px);
+          box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        .credentials {
+          background: #f8f9fa;
+          padding: 20px;
+          border-radius: 10px;
+          margin-top: 30px;
+          font-family: monospace;
+        }
       </style>
     </head>
     <body>
-      <h1>🤖 Victoria's WhatsApp Bot</h1>
-      <div class="status">
-        <h2>✅ SISTEMA OPERATIVO</h2>
-        <p><strong>Bot WhatsApp:</strong> Funcionando</p>
-        <p><strong>Base de datos:</strong> Conectada</p>
-        <p><strong>Panel admin:</strong> <a href="/admin">Acceder aquí</a></p>
+      <div class="container">
+        <h1>🤖 Victoria's WhatsApp Bot</h1>
+        
+        <div class="status">
+          <h2>✅ SISTEMA OPERATIVO</h2>
+          
+          <div class="status-item">
+            <div class="status-icon success">✅</div>
+            <div>
+              <strong>Bot WhatsApp:</strong> Funcionando<br>
+              <small>Webhook: /webhook</small>
+            </div>
+          </div>
+          
+          <div class="status-item">
+            <div class="status-icon success">✅</div>
+            <div>
+              <strong>Base de datos PostgreSQL:</strong> Conectada<br>
+              <small>Tablas creadas automáticamente</small>
+            </div>
+          </div>
+          
+          <div class="status-item">
+            <div class="status-icon info">📊</div>
+            <div>
+              <strong>Panel de administración:</strong> Disponible<br>
+              <small><a href="/admin" class="btn">Acceder al Panel</a></small>
+            </div>
+          </div>
+          
+          <div class="status-item">
+            <div class="status-icon warning">⚠️</div>
+            <div>
+              <strong>Plan gratuito Render:</strong> Activo<br>
+              <small>El sistema puede tardar 30-50s en despertar</small>
+            </div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 40px;">
+          <a href="/admin" class="btn">👑 Ir al Panel de Control</a>
+          <a href="/admin/login" class="btn" style="background: #2ecc71; margin-left: 10px;">🔐 Login Directo</a>
+        </div>
+        
+        <div class="credentials">
+          <p><strong>Credenciales de acceso:</strong></p>
+          <p>🔗 URL Panel: <strong>/admin</strong></p>
+          <p>👤 Usuario: <strong>admin</strong></p>
+          <p>🔑 Contraseña: <strong>admin123</strong></p>
+        </div>
+        
+        <p style="margin-top: 30px; color: #666; font-size: 14px;">
+          Sistema de agendamiento profesional con PostgreSQL | Victoria's Beauty Salon
+        </p>
       </div>
-      <p style="margin-top: 30px; color: #666;">
-        Sistema de agendamiento profesional con PostgreSQL
-      </p>
     </body>
     </html>
   `);
@@ -325,6 +437,7 @@ app.listen(PORT, () => {
   console.log(`   🌐 Servidor: http://localhost:${PORT}`);
   console.log(`   📱 Webhook: http://localhost:${PORT}/webhook`);
   console.log(`   👑 Panel admin: http://localhost:${PORT}/admin`);
+  console.log(`   🔐 Login: http://localhost:${PORT}/admin/login`);
   console.log('   📊 PostgreSQL: CONECTADA');
   console.log('   ==========================================');
   console.log('   Credenciales panel:');
@@ -334,4 +447,3 @@ app.listen(PORT, () => {
   console.log('   ✅ Sistema listo para producción');
   console.log('🚀 ==========================================');
 });
-
