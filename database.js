@@ -1,9 +1,9 @@
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 
-// Configuración de la base de datos
+// Configuración de la base de datos - USA TU URL DIRECTAMENTE
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: 'postgresql://victorias_admin:7TB4EZxUJz4uBM8y9cVfuIor6WjHo8ZD@dpg-d5c3u3f5r7bs73aouo60-a/victorias_db',
   ssl: {
     rejectUnauthorized: false
   }
@@ -52,23 +52,22 @@ const createTables = async () => {
         'INSERT INTO admins (username, password_hash) VALUES ($1, $2)',
         ['admin', hashedPassword]
       );
-      console.log('✅ Admin por defecto creado: usuario=admin, contraseña=admin123');
+      console.log('✅ Admin creado: usuario=admin, contraseña=admin123');
     }
 
-    console.log('✅ Tablas creadas correctamente en PostgreSQL');
+    console.log('✅ Tablas creadas en PostgreSQL');
   } catch (error) {
     console.error('❌ Error creando tablas:', error.message);
   }
 };
 
-// Inicializar tablas al iniciar (con retardo para esperar conexión)
+// Inicializar tablas
 setTimeout(() => {
   createTables();
-}, 3000);
+}, 5000);
 
 // Funciones para citas
 const db = {
-  // Guardar nueva cita DESDE EL BOT
   async saveAppointment(appointmentData) {
     const {
       whatsapp_number,
@@ -100,7 +99,7 @@ const db = {
 
     try {
       const result = await pool.query(query, values);
-      console.log('✅ Cita guardada en BD con ID:', result.rows[0].id);
+      console.log('✅ Cita guardada ID:', result.rows[0].id);
       return { success: true, id: result.rows[0].id };
     } catch (error) {
       console.error('❌ Error guardando cita:', error.message);
@@ -108,7 +107,6 @@ const db = {
     }
   },
 
-  // Obtener todas las citas (PARA EL PANEL)
   async getAllAppointments() {
     try {
       const result = await pool.query(`
@@ -125,7 +123,6 @@ const db = {
     }
   },
 
-  // Obtener estadísticas (PARA EL DASHBOARD)
   async getStats() {
     try {
       const totalQuery = await pool.query('SELECT COUNT(*) as total FROM citas');
@@ -151,7 +148,6 @@ const db = {
     }
   },
 
-  // Actualizar estado de cita (COMPLETADA/CANCELADA)
   async updateAppointmentStatus(id, status) {
     try {
       await pool.query(
@@ -166,7 +162,6 @@ const db = {
     }
   },
 
-  // Verificar login del panel admin
   async verifyAdmin(username, password) {
     try {
       const result = await pool.query(
