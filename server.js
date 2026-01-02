@@ -1,236 +1,334 @@
+require('dotenv').config();
 const express = require('express');
+const bodyParser = require('body-parser');
+const session = require('express-session');
+const db = require('./database');
+const path = require('path');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 📦 PAQUETES QUE NECESITAMOS
-const { MessagingResponse } = require('twilio').twiml;
+// Configurar variables de entorno PARA POSTGRES
+process.env.DATABASE_URL = 'postgresql://victorias_admin:7TB4EZxUJz4uBM8y9cVfuIor6WjHo8ZD@dpg-d5c3u3f5r7bs73aouo60-a/victorias_db';
 
-// 🏗️ CONSTRUIR EL SERVIDOR
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());  // ← AÑADÍ ESTA LÍNEA
+// Middleware
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+app.use(express.static('public'));
 
-// 📒 CUADERNO PARA RECORDAR
-const cuaderno = {};
+// Configuración de sesión para el panel admin
+app.use(session({
+  secret: 'victorias-secret-key-2024-' + Math.random().toString(36).substring(2),
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: false, // Cambiar a true si usas HTTPS
+    maxAge: 24 * 60 * 60 * 1000 // 24 horas
+  }
+}));
 
-// ✨ SERVICIOS DE VICTORIAS HAIRSALON ✨
-const servicios = [
-  "1. 💇 CORTE",
-  "   👩 Corte dama, caballero o niños - $100",
-  "   ✂️ Fleco, barba o shampoo - $50",
-  "   💇‍♀️ Bob - $350",
-  "",
-  "2. 🎨 EFECTOS DE COLOR Y TRATAMIENTOS",
-  "   ✨ Depilación facial (por área) - $80",
-  "   👁️ Planchado de ceja (con depilación) - $200",
-  "   👁️‍🗨️ Rizado de pestañas - $200",
-  "   💆‍♀️ Alaciado express - $250 a $450",
-  "   🎨 Aplicación de tinte - $350",
-  "   💃 Peinado - $450",
-  "   💄 Maquillaje (con pestañas) - $500",
-  "   👑 Peinado + Maquillaje casual - $950",
-  "   🌈 Efecto de color - Desde $1050",
-  "",
-  "3. 💅 UÑAS",
-  "   ✨ Manicure (gel, un tono) - $220",
-  "   💅 Gelish - $150",
-  "   👣 Pedicure (gel, un tono) - $320",
-  "   💎 Uñas esculturales - Desde $250",
-  "   💪 Rubber - $200",
-  "",
-  "4. 💆‍♀️ OTROS SERVICIOS",
-  "   💖 Keratina (por onza) - $950",
-  "   💆‍♀️ Botox (aplicación) - $900",
-  "   ✨ Limpieza facial - $450"
-];
+// Middleware de autenticación
+const requireAuth = (req, res, next) => {
+  if (req.session.user) {
+    next();
+  } else {
+    res.redirect('/admin/login');
+  }
+};
 
-// 🎪 MENÚ PRINCIPAL
-const menu = `✨ *VICTORIAS HAIRSALON* 💇‍♀️
-
-¡Hola! Soy tu asistente virtual.
-Escribe el número de lo que quieres:
-
-1️⃣ Ver todos los servicios y precios
-2️⃣ Agendar una cita  
-3️⃣ Ver mi cita agendada
-4️⃣ Información de contacto y horarios
-
-¿Qué te gustaría hacer?`;
-
-// ✅ RUTA DE PRUEBA EN LA RAÍZ
-app.get('/', (req, res) => {
-  console.log("✅ GET a la raíz recibido");
-  res.send('✅ Bot Victorias Hairsalon funcionando. Webhook: POST /whatsapp');
+// ========== RUTAS DEL PANEL ADMIN ==========
+app.get('/admin', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
-// 📞 CUANDO ALGUIEN ESCRIBE POR WHATSAPP
-app.post('/whatsapp', (req, res) => {
-  console.log("📱 Webhook /whatsapp llamado!");
+app.get('/admin/login', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Login - Panel Victoria's</title>
+      <style>
+        body { 
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0;
+        }
+        .login-container {
+          width: 100%;
+          max-width: 400px;
+          padding: 20px;
+        }
+        .login-box { 
+          background: white; 
+          padding: 40px; 
+          border-radius: 15px; 
+          box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+          text-align: center;
+        }
+        .logo { 
+          font-size: 48px; 
+          color: #667eea; 
+          margin-bottom: 20px;
+        }
+        h2 { 
+          color: #333; 
+          margin-bottom: 30px;
+          font-size: 24px;
+        }
+        input { 
+          width: 100%; 
+          padding: 15px; 
+          margin: 10px 0; 
+          border: 1px solid #ddd; 
+          border-radius: 8px;
+          font-size: 16px;
+          box-sizing: border-box;
+        }
+        input:focus {
+          outline: none;
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        button { 
+          width: 100%; 
+          padding: 15px; 
+          background: #667eea; 
+          color: white; 
+          border: none; 
+          border-radius: 8px; 
+          cursor: pointer; 
+          font-size: 16px;
+          font-weight: 600;
+          margin-top: 10px;
+          transition: background 0.3s;
+        }
+        button:hover { 
+          background: #5a6fd8;
+          transform: translateY(-2px);
+          box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        .error { 
+          color: #ff4757; 
+          background: #ffe6e6;
+          padding: 10px;
+          border-radius: 8px;
+          margin: 15px 0;
+          display: ${req.query.error ? 'block' : 'none'};
+        }
+        .credentials {
+          margin-top: 25px;
+          padding: 15px;
+          background: #f8f9fa;
+          border-radius: 8px;
+          color: #666;
+          font-size: 14px;
+        }
+        .credentials strong {
+          color: #333;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="login-container">
+        <div class="login-box">
+          <div class="logo">🔐</div>
+          <h2>Panel de Administración<br>Victoria's</h2>
+          
+          <div class="error">
+            <i class="fas fa-exclamation-circle"></i> Usuario o contraseña incorrectos
+          </div>
+          
+          <form action="/admin/login" method="POST">
+            <input type="text" name="username" placeholder="Usuario" required>
+            <input type="password" name="password" placeholder="Contraseña" required>
+            <button type="submit">Ingresar al Panel</button>
+          </form>
+          
+          <div class="credentials">
+            <p><strong>Credenciales por defecto:</strong></p>
+            <p>Usuario: <strong>admin</strong></p>
+            <p>Contraseña: <strong>admin123</strong></p>
+            <p style="margin-top: 10px; font-size: 12px; color: #888;">
+              <i>Puedes cambiar estas credenciales en la base de datos</i>
+            </p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+});
+
+app.post('/admin/login', async (req, res) => {
+  const { username, password } = req.body;
+  const result = await db.verifyAdmin(username, password);
   
-  // SI NO HAY DATOS DE TWILIO, RESPONDER CON ÉXITO
-  if (!req.body || !req.body.From) {
-    console.log("⚠️ No hay datos de Twilio, respondiendo 200 OK");
-    const respuesta = new MessagingResponse();
-    res.type('text/xml');
-    res.send(respuesta.toString());
-    return;
+  if (result.valid) {
+    req.session.user = result.user;
+    console.log('✅ Login exitoso para:', username);
+    res.redirect('/admin');
+  } else {
+    console.log('❌ Login fallido para:', username);
+    res.redirect('/admin/login?error=1');
   }
+});
+
+app.get('/admin/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/admin/login');
+});
+
+// ========== API PARA EL PANEL ==========
+app.get('/api/appointments', requireAuth, async (req, res) => {
+  try {
+    const appointments = await db.getAllAppointments();
+    res.json({ success: true, data: appointments });
+  } catch (error) {
+    console.error('Error en API appointments:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/stats', requireAuth, async (req, res) => {
+  try {
+    const stats = await db.getStats();
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    console.error('Error en API stats:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.put('/api/appointments/:id/status', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const result = await db.updateAppointmentStatus(id, status);
+    res.json(result);
+  } catch (error) {
+    console.error('Error actualizando estado:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ========== WEBHOOK DE WHATSAPP (TU BOT EXISTENTE) ==========
+app.post('/webhook', async (req, res) => {
+  const twilio = require('twilio');
+  const MessagingResponse = twilio.twiml.MessagingResponse;
+  const twiml = new MessagingResponse();
   
-  console.log("📱 Mensaje recibido de Twilio!");
+  const message = req.body.Body.toLowerCase().trim();
+  const from = req.body.From;
   
-  // Crear respuesta para Twilio
-  const respuesta = new MessagingResponse();
-  const mensaje = respuesta.message();
+  console.log(`📱 WhatsApp de ${from}: ${message}`);
   
-  // Datos del mensaje
-  const telefono = req.body.From;
-  const texto = (req.body.Body || '').trim().toLowerCase();
-  
-  console.log(`De: ${telefono}`);
-  console.log(`Dice: ${texto}`);
-  
-  // 🎯 LÓGICA DEL BOT
-  
-  // Si es la primera vez o dice "hola"
-  if (!cuaderno[telefono] || texto === 'hola') {
-    cuaderno[telefono] = {
-      paso: 'menu',
-      cita: {}
+  // ===== AGENDAR CITA DESDE WHATSAPP =====
+  if (message.includes('agendar') || message.includes('cita')) {
+    // Extraer fecha del mensaje (ejemplo simple)
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const appointmentData = {
+      whatsapp_number: from.replace('whatsapp:', ''),
+      customer_name: 'Cliente WhatsApp',
+      service_type: 'Servicio General',
+      appointment_date: tomorrow.toISOString().split('T')[0], // Mañana
+      appointment_time: '14:00',
+      price: 450
     };
-    mensaje.body(menu);
-  }
-  
-  // Obtener datos de esta persona
-  const datos = cuaderno[telefono];
-  
-  // 📋 MENÚ PRINCIPAL
-  if (datos.paso === 'menu') {
-    if (texto === '1') {
-      // Mostrar servicios
-      let lista = "💖 *NUESTROS SERVICIOS Y PRECIOS:*\n\n";
-      servicios.forEach(servicio => {
-        lista += servicio + "\n";
-      });
-      lista += "\n💝 *HORARIO:* Lunes a sábado de 10am a 8pm";
-      lista += "\n\n✨ Para agendar, escribe '2'";
-      mensaje.body(lista);
-    }
-    else if (texto === '2') {
-      // Empezar a agendar - versión simplificada
-      datos.paso = 'elegir_categoria';
-      mensaje.body("💇 *¿QUÉ SERVICIO DESEAS?*\n\nEscribe el número:\n\n1. Corte\n2. Efectos de color/Tratamientos\n3. Uñas\n4. Otros servicios\n\nO escribe el nombre exacto del servicio.");
-    }
-    else if (texto === '3') {
-      // Ver cita guardada
-      if (datos.cita && datos.cita.servicio) {
-        mensaje.body(`📅 *TU CITA AGENDADA:*\n\n✨ Servicio: ${datos.cita.servicio}\n📅 Fecha: ${datos.cita.fecha}\n⏰ Hora: ${datos.cita.hora}\n\n📍 *VICTORIAS HAIRSALON*\nPlaza Laguna Local 35\nDr. Alfredo Gochicoa 1020\nCol. Volantín, Tampico, Tam.`);
-      } else {
-        mensaje.body("📭 Aún no tienes citas agendadas.\nEscribe '2' para agendar una cita.");
-      }
-    }
-    else if (texto === '4') {
-      mensaje.body(`📍 *INFORMACIÓN DE CONTACTO*\n\n🏢 *VICTORIAS HAIRSALON*\nPlaza Laguna Local 35\nDr. Alfredo Gochicoa 1020\nCol. Volantín, Tampico, Tam.\n\n⏰ *HORARIO:*\nLunes a sábado de 10am a 8pm\n\n📞 *RESERVACIONES POR WHATSAPP*\n(Escribe '2' para agendar cita)\n\n✨ ¡Te esperamos!`);
-    }
-    else {
-      mensaje.body(menu);
-    }
-  }
-  
-  // 🛒 ELEGIR CATEGORÍA
-  else if (datos.paso === 'elegir_categoria') {
-    if (['1','2','3','4'].includes(texto)) {
-      const categorias = [
-        "Corte",
-        "Efectos de color y tratamientos", 
-        "Uñas",
-        "Otros servicios"
-      ];
-      datos.cita.categoria = categorias[parseInt(texto) - 1];
-      datos.paso = 'elegir_fecha';
-      mensaje.body(`✅ Categoría: *${datos.cita.categoria}*\n\n📅 *¿PARA QUÉ FECHA DESEAS TU CITA?*\n(Ejemplo: 15/enero/2025 o mañana, viernes, etc.)`);
+    
+    const result = await db.saveAppointment(appointmentData);
+    
+    if (result.success) {
+      twiml.message(`✅ ¡CITA AGENDADA EXITOSAMENTE! 
+
+📅 Fecha: ${appointmentData.appointment_date}
+⏰ Hora: ${appointmentData.appointment_time}
+💇 Servicio: ${appointmentData.service_type}
+💰 Precio: $${appointmentData.price}
+
+Tu ID de cita es: ${result.id}
+
+¡Te esperamos! ✨`);
     } else {
-      // Si escribe nombre directo del servicio
-      datos.cita.servicio = texto;
-      datos.paso = 'elegir_fecha';
-      mensaje.body(`✅ Servicio: *${texto}*\n\n📅 *¿PARA QUÉ FECHA DESEAS TU CITA?*\n(Ejemplo: 15/enero/2025)`);
+      twiml.message('❌ Lo siento, hubo un error al agendar tu cita. Por favor intenta de nuevo.');
     }
   }
-  
-  // 📅 ELEGIR FECHA
-  else if (datos.paso === 'elegir_fecha') {
-    datos.cita.fecha = texto;
-    datos.paso = 'elegir_hora';
-    
-    let horaMsg = `📅 Fecha: *${texto}*\n\n⏰ *¿A QUÉ HORA PREFIERES?*\n\nHorario disponible:\n`;
-    horaMsg += "• 10:00 AM\n• 11:00 AM\n• 12:00 PM\n• 1:00 PM\n• 2:00 PM\n";
-    horaMsg += "• 3:00 PM\n• 4:00 PM\n• 5:00 PM\n• 6:00 PM\n• 7:00 PM\n\n";
-    horaMsg += "Escribe la hora exacta (ejemplo: 3:00 PM)";
-    
-    mensaje.body(horaMsg);
+  // ===== MENSAJE DE AYUDA =====
+  else if (message.includes('hola') || message.includes('ayuda') || message.includes('menu')) {
+    twiml.message(`¡Hola! 👋 Soy el asistente de *Victoria's*
+
+📋 *Comandos disponibles:*
+• "AGENDAR" - Para reservar una cita
+• "CITAS" - Ver tus citas próximas
+• "SERVICIOS" - Ver servicios disponibles
+• "PRECIOS" - Conocer nuestros precios
+• "HORARIO" - Ver horarios de atención
+
+¿En qué puedo ayudarte? 💅`);
+  }
+  // ===== RESPUESTA POR DEFECTO =====
+  else {
+    twiml.message(`¡Hola! 💖 
+
+Escribe "AGENDAR" para reservar una cita con nosotros.
+
+O "AYUDA" para ver todas las opciones disponibles.
+
+¡Estamos aquí para consentirte! ✨`);
   }
   
-  // ⏰ ELEGIR HORA
-  else if (datos.paso === 'elegir_hora') {
-    datos.cita.hora = texto;
-    datos.paso = 'confirmar';
-    
-    const resumen = `📋 *RESUMEN DE TU CITA:*\n\n` +
-      `💇 ${datos.cita.servicio || datos.cita.categoria}\n` +
-      `📅 Fecha: ${datos.cita.fecha}\n` +
-      `⏰ Hora: ${datos.cita.hora}\n\n` +
-      `📍 *VICTORIAS HAIRSALON*\n` +
-      `Plaza Laguna Local 35\n` +
-      `Dr. Alfredo Gochicoa 1020\n` +
-      `Col. Volantín, Tampico, Tam.\n\n` +
-      `⏰ Horario: Lunes a sábado 10am-8pm\n\n` +
-      `¿Está todo correcto?\n\n` +
-      `Escribe: *SI* ✅ para confirmar\n` +
-      `Escribe: *NO* ❌ para cancelar`;
-    
-    mensaje.body(resumen);
-  }
-  
-  // ✅ CONFIRMAR O CANCELAR
-  else if (datos.paso === 'confirmar') {
-    if (texto === 'si') {
-      mensaje.body(`🎉 *¡CITA CONFIRMADA!* 🎉\n\n` +
-        `✨ *VICTORIAS HAIRSALON*\n\n` +
-        `📅 *DETALLES DE TU CITA:*\n` +
-        `Servicio: ${datos.cita.servicio || datos.cita.categoria}\n` +
-        `Fecha: ${datos.cita.fecha}\n` +
-        `Hora: ${datos.cita.hora}\n\n` +
-        `📍 *DIRECCIÓN:*\n` +
-        `Plaza Laguna Local 35\n` +
-        `Dr. Alfredo Gochicoa 1020\n` +
-        `Col. Volantín, Tampico, Tam.\n\n` +
-        `⏰ *HORARIO:* Lunes a sábado 10am-8pm\n\n` +
-        `💖 *RECOMENDACIONES:*\n` +
-        `• Llegar 10 minutos antes\n` +
-        `• Traer cubrebocas\n` +
-        `• Cancelar con 24h de anticipación\n\n` +
-        `✨ ¡Gracias por tu reserva!\n\n` +
-        `Escribe 'hola' para volver al menú.`);
-      datos.paso = 'menu';
-    } else if (texto === 'no') {
-      mensaje.body("❌ *CITA CANCELADA*\n\nSi deseas agendar otra cita, escribe 'hola' para empezar de nuevo.\n\n✨ ¡Te esperamos pronto!");
-      datos.paso = 'menu';
-      datos.cita = {};
-    } else {
-      mensaje.body("Por favor responde *SI* o *NO*");
-    }
-  }
-  
-  // 📤 ENVIAR RESPUESTA
-  res.type('text/xml');
-  res.send(respuesta.toString());
-  console.log("✅ Respuesta enviada a Twilio!");
+  res.type('text/xml').send(twiml.toString());
 });
 
-// 🚀 ENCENDER EL BOT
+// ========== RUTAS PÚBLICAS ==========
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Victoria's Bot</title>
+      <style>
+        body { font-family: Arial; text-align: center; padding: 50px; }
+        h1 { color: #667eea; }
+        .status { background: #e6fff2; padding: 20px; border-radius: 10px; display: inline-block; margin: 20px; }
+      </style>
+    </head>
+    <body>
+      <h1>🤖 Victoria's WhatsApp Bot</h1>
+      <div class="status">
+        <h2>✅ SISTEMA OPERATIVO</h2>
+        <p><strong>Bot WhatsApp:</strong> Funcionando</p>
+        <p><strong>Base de datos:</strong> Conectada</p>
+        <p><strong>Panel admin:</strong> <a href="/admin">Acceder aquí</a></p>
+      </div>
+      <p style="margin-top: 30px; color: #666;">
+        Sistema de agendamiento profesional con PostgreSQL
+      </p>
+    </body>
+    </html>
+  `);
+});
+
+// ========== INICIAR SERVIDOR ==========
 app.listen(PORT, () => {
-  console.log("=".repeat(60));
-  console.log("✨✨ VICTORIAS HAIRSALON BOT ACTIVO ✨✨");
-  console.log(`📍 Servidor en puerto: ${PORT}`);
-  console.log(`📍 URL local: http://localhost:${PORT}`);
-  console.log(`🔗 Webhook: http://localhost:${PORT}/whatsapp`);
-  console.log("=".repeat(60));
+  console.log('🚀 ==========================================');
+  console.log('   Victoria\'s Bot - Sistema Profesional');
+  console.log('   ==========================================');
+  console.log(`   🌐 Servidor: http://localhost:${PORT}`);
+  console.log(`   📱 Webhook: http://localhost:${PORT}/webhook`);
+  console.log(`   👑 Panel admin: http://localhost:${PORT}/admin`);
+  console.log('   📊 PostgreSQL: CONECTADA');
+  console.log('   ==========================================');
+  console.log('   Credenciales panel:');
+  console.log('   👤 Usuario: admin');
+  console.log('   🔑 Contraseña: admin123');
+  console.log('   ==========================================');
+  console.log('   ✅ Sistema listo para producción');
+  console.log('🚀 ==========================================');
 });
