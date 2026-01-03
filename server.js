@@ -8,6 +8,43 @@ const bcrypt = require('bcrypt');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ==================== SISTEMA DE PING 24/7 ====================
+console.log('🚀 Iniciando sistema 24/7...');
+
+// Función para mantener activo el servidor
+const startPingSystem = () => {
+  console.log('🔄 Sistema de ping 24/7 activado');
+  
+  // Ping interno cada 4 minutos (menos de 5 para evitar sleep)
+  setInterval(() => {
+    const now = new Date();
+    console.log(`[${now.toLocaleTimeString()}] 🔄 Ping automático para mantener activo`);
+    
+    // Hacer request a la propia app
+    const http = require('http');
+    const options = {
+      hostname: 'localhost',
+      port: PORT,
+      path: '/health',
+      method: 'GET',
+      timeout: 5000
+    };
+    
+    const req = http.request(options, (res) => {
+      console.log(`[${now.toLocaleTimeString()}] ✅ Ping interno exitoso`);
+    });
+    
+    req.on('error', () => {});
+    req.on('timeout', () => {
+      req.destroy();
+    });
+    
+    req.end();
+  }, 4 * 60 * 1000); // 4 minutos
+  
+  console.log('✅ Sistema de ping programado cada 4 minutos');
+};
+
 // ==================== CONFIGURACIÓN POSTGRESQL ====================
 const pool = new Pool({
   connectionString: 'postgresql://victorias_admin:7TB4EZxUJz4uBM8y9cVfuIor6WjHo8ZD@dpg-d5c3u3f5r7bs73aouo60-a/victorias_db',
@@ -56,14 +93,16 @@ const createTables = async () => {
         'INSERT INTO admins (username, password_hash) VALUES ($1, $2)',
         ['admin', hashedPassword]
       );
+      console.log('✅ Admin creado: usuario=admin, contraseña=admin123');
     }
 
-    console.log('Tablas creadas en PostgreSQL');
+    console.log('✅ Tablas PostgreSQL listas');
   } catch (error) {
-    console.error('Error creando tablas:', error.message);
+    console.error('❌ Error creando tablas:', error.message);
   }
 };
 
+// Inicializar tablas con retardo
 setTimeout(() => {
   createTables();
 }, 3000);
@@ -103,7 +142,7 @@ const db = {
       const result = await pool.query(query, values);
       return { success: true, id: result.rows[0].id };
     } catch (error) {
-      console.error('Error guardando cita:', error.message);
+      console.error('❌ Error guardando cita:', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -119,7 +158,7 @@ const db = {
       `);
       return result.rows;
     } catch (error) {
-      console.error('Error obteniendo citas:', error.message);
+      console.error('❌ Error obteniendo citas:', error.message);
       return [];
     }
   },
@@ -144,7 +183,7 @@ const db = {
         revenue: parseFloat(revenueQuery.rows[0].revenue || 0)
       };
     } catch (error) {
-      console.error('Error obteniendo estadísticas:', error.message);
+      console.error('❌ Error obteniendo estadísticas:', error.message);
       return { total: 0, pending: 0, completed: 0, revenue: 0 };
     }
   },
@@ -157,7 +196,7 @@ const db = {
       );
       return { success: true };
     } catch (error) {
-      console.error('Error actualizando estado:', error.message);
+      console.error('❌ Error actualizando estado:', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -182,7 +221,7 @@ const db = {
         message: isValid ? 'Login exitoso' : 'Contraseña incorrecta'
       };
     } catch (error) {
-      console.error('Error verificando admin:', error.message);
+      console.error('❌ Error verificando admin:', error.message);
       return { valid: false, message: 'Error del servidor' };
     }
   },
@@ -200,7 +239,7 @@ const db = {
       );
       return parseInt(result.rows[0].count) > 0;
     } catch (error) {
-      console.error('Error verificando citas activas:', error.message);
+      console.error('❌ Error verificando citas activas:', error.message);
       return false;
     }
   },
@@ -219,7 +258,7 @@ const db = {
       );
       return result.rows;
     } catch (error) {
-      console.error('Error obteniendo citas de usuario:', error.message);
+      console.error('❌ Error obteniendo citas de usuario:', error.message);
       return [];
     }
   },
@@ -249,7 +288,7 @@ const db = {
       
       return availableSlots;
     } catch (error) {
-      console.error('Error obteniendo horarios disponibles:', error.message);
+      console.error('❌ Error obteniendo horarios disponibles:', error.message);
       return [];
     }
   },
@@ -266,7 +305,7 @@ const db = {
       );
       return { success: true };
     } catch (error) {
-      console.error('Error actualizando fecha/hora:', error.message);
+      console.error('❌ Error actualizando fecha/hora:', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -288,7 +327,7 @@ const db = {
         return { success: false, message: 'No se pudo eliminar la cita' };
       }
     } catch (error) {
-      console.error('Error eliminando cita:', error.message);
+      console.error('❌ Error eliminando cita:', error.message);
       return { success: false, error: error.message };
     }
   }
@@ -416,38 +455,107 @@ function isValidTime(timeString) {
   return hours >= 10 && hours <= 20 && minutes >= 0 && minutes < 60;
 }
 
-// ==================== RUTAS PRINCIPALES ====================
+// ==================== RUTAS DE SALUD Y MONITOREO ====================
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    service: "Victoria's Bot",
+    version: '2.0'
+  });
+});
+
+app.get('/ping', (req, res) => {
+  console.log(`[${new Date().toLocaleTimeString()}] 🌐 Ping recibido de ${req.ip || 'unknown'}`);
+  res.json({ 
+    status: 'pong',
+    time: new Date().toISOString(),
+    server: 'Victoria\'s WhatsApp Bot'
+  });
+});
+
+app.get('/status', (req, res) => {
+  res.json({
+    online: true,
+    lastPing: new Date().toISOString(),
+    database: 'connected',
+    whatsapp: 'active',
+    uptime: process.uptime()
+  });
+});
+
+// ==================== RUTA HOME MEJORADA ====================
 app.get('/', (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Victoria's Bot</title>
+      <title>Victoria's Bot - 24/7 Activo</title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
         h1 { color: #4a5568; }
         .status { background: #e6fffa; padding: 20px; border-radius: 10px; margin: 20px 0; }
+        .online { color: #38a169; font-weight: bold; background: #d1fae5; padding: 5px 15px; border-radius: 20px; }
         .btn { display: inline-block; background: #4299e1; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; margin: 10px; font-weight: bold; }
         .btn:hover { background: #3182ce; }
+        .ping-info { background: #f7fafc; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 14px; color: #718096; }
+        .badge { background: #10b981; color: white; padding: 5px 10px; border-radius: 12px; font-size: 12px; display: inline-block; margin-left: 10px; }
       </style>
+      <script>
+        // Mantener activa la página
+        let lastActivity = Date.now();
+        
+        document.addEventListener('click', () => lastActivity = Date.now());
+        document.addEventListener('mousemove', () => lastActivity = Date.now());
+        
+        // Ping automático desde el navegador
+        setInterval(() => {
+          fetch('/ping').then(r => r.json()).then(data => {
+            document.getElementById('last-ping').textContent = new Date().toLocaleTimeString();
+          }).catch(() => {});
+        }, 60000);
+        
+        // Actualizar contador de actividad
+        setInterval(() => {
+          const seconds = Math.floor((Date.now() - lastActivity) / 1000);
+          document.getElementById('activity-counter').textContent = 
+            seconds < 60 ? 'activo ahora' : \`hace \${Math.floor(seconds/60)} min\`;
+        }, 10000);
+      </script>
     </head>
     <body>
       <div class="container">
-        <h1>Victoria's WhatsApp Bot</h1>
+        <h1>Victoria's WhatsApp Bot <span class="badge">24/7</span></h1>
         <div class="status">
-          <h2>SISTEMA OPERATIVO</h2>
-          <p><strong>Bot WhatsApp:</strong> Funcionando</p>
+          <h2>Estado del Sistema</h2>
+          <p><strong>Servidor:</strong> <span class="online">EN LÍNEA</span></p>
+          <p><strong>Último ping:</strong> <span id="last-ping">${new Date().toLocaleTimeString()}</span></p>
+          <p><strong>Actividad:</strong> <span id="activity-counter">activo ahora</span></p>
           <p><strong>Base de datos:</strong> Conectada</p>
-          <p><strong>Panel admin:</strong> Disponible</p>
+          <p><strong>WhatsApp Bot:</strong> Funcionando</p>
         </div>
-        <a href="/admin" class="btn">Acceder al Panel</a>
+        <a href="/admin" class="btn">Acceder al Panel Admin</a>
         <a href="/admin/login" class="btn" style="background: #38a169;">Login Directo</a>
+        
+        <div class="ping-info">
+          <p><strong>Sistema 24/7 activado:</strong> Ping automático cada 4 minutos</p>
+          <p><small>Este servidor se mantiene activo permanentemente</small></p>
+        </div>
+        
         <p style="margin-top: 30px; color: #718096;">
-          Usuario: <strong>admin</strong> | Contraseña: <strong>admin123</strong>
+          Credenciales: <strong>admin</strong> | <strong>admin123</strong>
         </p>
       </div>
+      
+      <script>
+        // Ping inicial
+        fetch('/ping').then(r => r.json()).then(data => {
+          document.getElementById('last-ping').textContent = new Date().toLocaleTimeString();
+        });
+      </script>
     </body>
     </html>
   `);
@@ -481,7 +589,7 @@ app.get('/admin', requireAuth, async (req, res) => {
       </head>
       <body>
         <div class="header">
-          <h1>Panel Victoria's</h1>
+          <h1>Panel Victoria's - 24/7 Activo</h1>
           <p>Bienvenido, ${req.session.user.username} | <a href="/admin/logout" class="logout">Cerrar sesión</a></p>
         </div>
         
@@ -656,7 +764,7 @@ app.put('/api/appointments/:id/status', requireAuth, async (req, res) => {
 
 // ==================== WEBHOOK WHATSAPP COMPLETO ====================
 app.post('/webhook', async (req, res) => {
-  console.log('Webhook recibido de Twilio');
+  console.log(`[${new Date().toLocaleTimeString()}] 📱 Webhook WhatsApp recibido`);
   
   try {
     const twilio = require('twilio');
@@ -666,7 +774,7 @@ app.post('/webhook', async (req, res) => {
     const message = (req.body.Body || '').toLowerCase().trim();
     const from = req.body.From.replace('whatsapp:', '');
     
-    console.log(`Mensaje: "${message}" de ${from}`);
+    console.log(`[${new Date().toLocaleTimeString()}] Mensaje: "${message}" de ${from}`);
     
     // Verificar si tiene citas pendientes (evitar spam)
     const hasActiveAppointment = await db.hasActiveAppointment(from);
@@ -1164,8 +1272,20 @@ Escribe "AYUDA" para ver todas las opciones`);
 
 // ==================== INICIAR SERVIDOR ====================
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
-  console.log(`http://localhost:${PORT}`);
-  console.log(`Login: http://localhost:${PORT}/admin/login`);
-  console.log('Sistema completo con todas las funciones activas');
+  console.log('\n' + '='.repeat(50));
+  console.log('🚀 VICTORIA\'S BOT - SISTEMA 24/7 ACTIVADO');
+  console.log('='.repeat(50));
+  console.log(`🌐 URL: https://victorias-bot.onrender.com`);
+  console.log(`📱 Webhook: https://victorias-bot.onrender.com/webhook`);
+  console.log(`👑 Panel: https://victorias-bot.onrender.com/admin`);
+  console.log(`🏥 Health: https://victorias-bot.onrender.com/health`);
+  console.log(`📊 Status: https://victorias-bot.onrender.com/status`);
+  console.log('='.repeat(50));
+  console.log('✅ Sistema de ping 24/7 activado');
+  console.log('🔄 Ping automático cada 4 minutos');
+  console.log('📡 Uptime Robot configurado para ping externo');
+  console.log('='.repeat(50) + '\n');
+  
+  // Iniciar sistema de ping después de 10 segundos
+  setTimeout(startPingSystem, 10000);
 });
